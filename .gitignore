@@ -5,6 +5,18 @@
 # Session Data files
 .RData
 
+*.csv
+
+data/
+/data/
+./data
+data
+/data 
+
+data/.
+/data/.
+./data/.
+
 # Example code in package build process
 *-Ex.R
 
