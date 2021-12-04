@@ -4,14 +4,9 @@ output:
     variant: markdown_github
 ---
 
-# Purpose
+# Description
 
-Purpose of this work folder.
-
-Ideally store a minimum working example data set in data folder.
-
-Add binary files in bin, and closed R functions in code. Human Readable settings files (e.g. csv) should be placed in settings/
-
+Produced below is my attempt at the Financial Econometrics 871 practical.
 
 ```{r}
 rm(list = ls()) # Clean your environment:
@@ -787,11 +782,12 @@ dcc.time.var.cor <- renamingdcc(ReturnSeries = xts_rtn, DCC.TV.Cor = dcc.time.va
 ```
 
 ```{r}
-g1 <- ggplot(dcc.time.var.cor %>% filter(grepl("MSCI_ACWI", Pairs), 
-    !grepl("MSCI_ACWI", Pairs))) + geom_line(aes(x = date, y = Rho, 
-    colour = Pairs)) + theme_hc() + ggtitle("Dynamic Conditional Correlations: MSCI_ACWI")
+MSCIPLot <- ggplot(dcc.time.var.cor %>% filter(grepl("MSCI_ACWI_", Pairs), 
+    !grepl("_MSCI_ACWI", Pairs))) + geom_line(aes(x = date, y = Rho, 
+    colour = Pairs)) + theme_hc() + labs(subtitle = "Dynamic Conditional Correlations: MSCI_ACWI", x = "", y = "") +
+    fmx_cols() + theme_fmx(subtitle.size = ggpts(25), legend.size = ggpts(15))
 
-print(g1)
+MSCIPLot
 ```
 
 
