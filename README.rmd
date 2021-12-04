@@ -35,5 +35,763 @@ list.files('code/', full.names = T, recursive = T) %>% .[grepl('.R', .)] %>% as.
 
 ```
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
+pacman::p_load("modelsummary", "gt", "knitr", "kableExtra", "tidyverse", "devtools", "rugarch", "rmgarch","forecast", "tbl2xts", "lubridate", "PerformanceAnalytics","ggthemes", "MTS", "robustbase", "rmsfuns", "xts", "glue", "fmxdat", "dplyr", "readr", "rportfolios", "kable")
+```
+
 #Question 1
+
+##Yield Spread
+
+```{r, echo=FALSE}
+getwd()
+```
+
+##Load in Data
+
+```{r}
+
+SA_bonds <- read_rds("data/SA_Bonds.rds")
+BE_Infl <- read_rds("data/BE_Infl.rds")
+bonds_2y <- read_rds("data/bonds_2y.rds")
+bonds_10y <- read_rds("data/bonds_10y.rds")
+usdzar <- read_rds("data/usdzar.rds")
+ZA_Infl <- read_rds("data/ZA_Infl.rds")
+IV <- read_rds("data/IV.rds")
+```
+
+
+Economists recently pointed out that the current yield spreads in local mid to longer dated bond yields have since 2020 been the highest in decades. Lets start our analysis with looking at the yield spreads over the different dated SA bonds.
+
+```{r, echo=FALSE}
+
+SA_bonds_clean <- SA_bonds %>%  
+                
+    arrange(date) %>% 
+    
+    gather(Ticker, Yield, -date) %>% 
+    
+    tbl2xts::tbl_xts(cols_to_xts = Yield, spread_by = Ticker) %>% 
+    
+    tbl2xts::xts_tbl() %>% gather(Ticker, Yield, -date)
+
+SA_bonds_clean
+#Pipe to kable to look nice in report
+
+```
+
+```{r, echo=TRUE}
+
+SA_Bond_All <- SA_bonds_clean %>% 
+    
+                ggplot() +
+                geom_line(aes(date, Yield, color = Ticker)) +
+               
+  
+  # Nice clean theme, with many additions that are now simplified (explore this yourself):
+  # E.g. using fmxdat::ggpts, we can change the sizes more easily in millimeters. 
+  # theme_fmx also offers simplified size settings, as e.g. below:
+  
+  fmxdat::theme_fmx(title.size = ggpts(30), 
+                    subtitle.size = ggpts(28),
+                    caption.size = ggpts(25),
+                    # Makes nicer caption. If no caption given, this will break function, so careful:
+                    CustomCaption = T) + 
+  
+  # crisp colours:
+  fmxdat::fmx_cols() + 
+  
+  labs(x = "", y = "Bond Yields", caption = "Note:\nCalculation own",
+       title = "Bond Yields in South Africa across the 3 month, 2 year and 10 year maturities",
+       subtitle = "") + 
+  
+  guides(color = F)
+  
+# Finplot now adds finishing touches easily:
+
+  fmxdat::finplot(SA_Bond_All, x.vert = T, x.date.type = "%Y", x.date.dist = "2 years")
+  
+ #come back and add legend 
+```
+``
+A cursory analysis indicates that bond yields for all maturities have declined over the 20-year period examined. The largest decline is experienced by the shortest maturity. We are however, more interested in the spreads between bonds of different maturities. 
+
+```{r, echo=FALSE}
+
+#Calculating the spreads on the different maturities
+Bond_spreads <- SA_bonds %>% 
+    
+    mutate(spread3M10Yr = ZA_10Yr - SA_3M) %>% 
+    
+    mutate(spread3M2Yr = ZA_2Yr - SA_3M)
+
+#gather and tidy 
+Bond_spreads_st <- Bond_spreads %>% 
+    
+                    select(date, spread3M10Yr, spread3M2Yr) %>% 
+    
+                    gather(Ticker, Spread, -date) %>% 
+    
+                     tbl2xts::tbl_xts(cols_to_xts = Spread, spread_by = Ticker) %>% 
+    
+                    tbl2xts::xts_tbl() %>% gather(Ticker, Spread, -date)
+
+Bond_spreads_st
+        
+```
+
+```{r, echo=TRUE}
+#bond spreads with the 3m bond yield as the reference point 
+Bond_spreads_st %>% ggplot + 
+                geom_line(aes(date, Spread, color = Ticker))+
+                theme_bw()
+```
+Evidently, the spread between the shortest dated maturity and the mid and longer termed bonds have widened recently. The divergence seems to have started in late 2018 and has continued to have widened since.
+
+```{r}
+SA_bonds
+```
+
+##Comparing local spreads to international spreads
+
+```{r}
+bonds_10y
+```
+##Carry trade 
+
+```{r}
+usdzar %>% ggplot() + geom_line(aes(date, Price, color = Name)) +
+                     labs(x = "date", y = "USDZAR Exchange Rate", 
+                            title = "USD ZAR Exchange rate")
+                           
+```
+
+#Question 2 
+
+
+The ALSI Top40 is an equity Index of the 40 largest companies by market capitalisation, listed on the JSE where the fund is rebalanced quarterly. 
+
+The SWIX All Share Index represents 99% of the full market cap value of all eligible securities listed on the Main Board of the JSE however, all constituents are weighted by an alternate free float, called the SWIX free float. The SWIX top 40 thus represents the largest 40 companies weighted by the SWIX free float. 
+
+
+```{r}
+T40 <- read_rds("data/T40.rds")
+RebDays <- read_rds("data/Rebalance_days.rds")
+```
+
+```{r, echo=FALSE}
+T40 
+```
+
+```{r}
+#Cumulative returns for each Index 
+
+T40Indexes <- T40 %>% arrange(date) %>% 
+                        mutate(J400Return = cumprod(1+(J400*Return))) %>% 
+                        mutate(J200Return = cumprod(1+(J200*Return))) %>% 
+                        select(date, J400Return, J200Return) 
+                    
+T40Indexes
+```
+
+
+```{r}
+#Cumulative returns of R1 invested in the J400
+J400ReturnPlot <- T40Indexes %>% ggplot() + geom_line(aes(date, J400Return, color = J400Return))
+J400ReturnPlot
+```
+
+```{r}
+#Cumulative returns of R1 invested in the J200
+
+J200ReturnPlot <- T40Indexes %>% ggplot() + geom_line(aes(date, J200Return, color = J200Return))
+J200ReturnPlot
+
+```
+
+```{r}
+#Cumulative returns of investing R1 in both the J400 & J200
+
+Cumreturns <- T40Indexes %>% ggplot() +
+                            geom_line(aes(date, J200Return, color = "red"))+
+                            geom_line(aes(date, J400Return, color = "blue"))+ 
+                             labs(x = "date", y = "Index Returns", 
+                            title = "Index Returns for the J200 & J400")
+                           
+
+Cumreturns
+```
+The difference between the indexes above is how each index is capped. The figure above indicates that the J200 has returned above that of the J400. 
+
+
+#Question 3
+
+PCA allows the modeler a means of identifying structure in the covariance / correlation matrix to locate low-dimensional subspaces containing most of the variation in the data. 
+
+Let’s ensure our data is mean centered, as well as scaled, when doing the PCA (this is important, as our returns data are typically skew, non-normal and non-zero meaned. Thus a log transformation, scaling and mean-centering is standard practice).
+
+
+```{r}
+library(zoo)
+
+J200IndexReturn <- T40 %>% arrange(date) %>% select(date, Tickers, Return, J200) %>% drop_na() %>% select(date, Tickers, Return)
+                    
+J200IndexReturn
+```
+
+```{r}
+J200PCAdata <- J200IndexReturn%>% 
+    group_by(Tickers) %>% 
+    mutate(Return = Return - mean(Return)) %>% 
+    ungroup %>% spread(Tickers, Return)
+
+J200PCAdata
+
+```
+
+```{r}
+#Generate distribution to draw from
+
+set.seed(1234)
+
+NALL<- nrow(J200PCAdata %>% gather(Tickers, Return, -date))
+    
+J200PCAdata <- bind_cols(
+    
+            J200PCAdata %>% gather(Tickers, Return, -date), 
+            
+            J200PCAdata %>% gather(Tickers, Return, -date) %>% 
+                
+            mutate(Dens = list(density(Return, na.rm = T))) %>%
+                
+            summarise(Random_Draws = list(sample(Dens[[1]]$x, NALL, replace = TRUE,
+                                                 
+            prob = .$Dens[[1]]$y))) %>% 
+                
+                unnest(Random_Draws)) %>% mutate(Return = coalesce(Return, Random_Draws)) %>% 
+    
+    select(-Random_Draws) %>% spread(Tickers, Return)
+
+
+any(is.na(J200PCAdata))
+```
+
+```{r}
+#spread ensures each ticker is a column heading
+covmat <- cov(J200PCAdata %>% select(-date))  # Covariance Matrix
+
+# eigenvectors:
+evec <- eigen(covmat, symmetric = TRUE)$vector
+# eigenvalues:
+eval <- eigen(covmat, symmetric = TRUE)$values
+```
+
+$$
+AE = \lambda E
+$$
+
+$$
+E^T \Sigma E = \lambda
+$$
+
+
+where E and λ the eigenvectors and eigenvalues, and Σ the demeaned covariance matrix. Note, eigen does not demean the data, we have to (as done using earlier).
+
+```{r}
+lambda = diag(t(evec) %*% covmat %*% evec)
+# Which should be equal to eval:
+all.equal(lambda, eval)
+```
+```{r}
+prop = eval/sum(eval)
+print(prop)
+```
+
+
+
+```{r}
+prop <- tibble(Loadings = prop) %>% mutate(PC = paste0("PC_", 
+    row_number()))
+
+prop[, "PC"][[1]] <- factor(prop[, "PC"][[1]], levels = prop$PC)
+
+g <- prop %>% 
+ggplot() + geom_bar(aes(PC, Loadings), stat = "identity", fill = "steelblue") + 
+    
+fmxdat::theme_fmx(axis.size.title = fmxdat::ggpts(38), axis.size = fmxdat::ggpts(35), 
+    title.size = fmxdat::ggpts(42), CustomCaption = T) + 
+scale_y_continuous(breaks = scales::pretty_breaks(10), labels = scales::percent_format(accuracy = 1)) + 
+    
+labs(x = "Principal Components", y = "Loadings", title = "Eigenvalue proportions", 
+    caption = "Source: Fmxdat Package")
+
+g
+```
+
+```{r}
+
+names <- covmat %>% colnames
+
+evecdf <- tibble(data.frame(evec))
+
+evecdf <- evecdf %>% purrr::set_names(c(paste0("Eigenv_", 1:ncol(evecdf)))) %>% 
+    mutate(Names = names)
+
+gg1 <- evecdf %>% ggplot() + geom_bar(aes(Names, Eigenv_1), stat = "identity", 
+    fill = "steelblue") + fmxdat::theme_fmx(axis.size.title = fmxdat::ggpts(38), 
+    axis.size = fmxdat::ggpts(35), title.size = fmxdat::ggpts(42), 
+    CustomCaption = T) + 
+scale_y_continuous(breaks = scales::pretty_breaks(10), labels = scales::percent_format(accuracy = 1)) + 
+    
+labs(x = "Principal Components", y = "Loadings: Eigenvector 1", 
+    title = "Eigenvector proportions\n", caption = "Source: Fmxdat Package")
+
+gg2 <- 
+evecdf %>% ggplot() + geom_bar(aes(Names, Eigenv_2), stat = "identity", 
+    fill = "steelblue") + 
+labs(x = "Principal Components", y = "Loadings: Eigenvector 2", 
+    title = "Eigenvector proportions\n", caption = "Source: Fmxdat Package") + 
+    
+fmxdat::theme_fmx(axis.size.title = fmxdat::ggpts(30), axis.size = fmxdat::ggpts(30), 
+    title.size = fmxdat::ggpts(42), CustomCaption = T) + 
+scale_y_continuous(breaks = scales::pretty_breaks(10), labels = scales::percent_format(accuracy = 1)) + 
+    
+geom_label(aes(Names, Eigenv_2, label = glue::glue("{Names}: {round(Eigenv_2, 2)*100}%")), 
+    alpha = 0.5, size = fmxdat::ggpts(4))
+
+fmxdat::finplot(gg1, x.vert = T)
+
+```
+
+#Calcualating a rolling constituent correlation perspective
+
+```{r}
+J400IndexReturn <- T40 %>% arrange(date) %>% select(date, Tickers, Return, J400) %>% drop_na() %>% select(date, Tickers, Return)
+                    
+J400IndexReturn
+```
+
+```{r}
+J400PCAdata <- J400IndexReturn%>% 
+    group_by(Tickers) %>% 
+    mutate(Return = Return - mean(Return)) %>% 
+    ungroup %>% spread(Tickers, Return)
+
+#Generate distribution to draw from
+
+set.seed(1234)
+
+NALL<- nrow(J400PCAdata %>% gather(Tickers, Return, -date))
+    
+J400PCAdata <- bind_cols(
+    
+            J400PCAdata %>% gather(Tickers, Return, -date), 
+            
+            J400PCAdata %>% gather(Tickers, Return, -date) %>% 
+                
+            mutate(Dens = list(density(Return, na.rm = T))) %>%
+                
+            summarise(Random_Draws = list(sample(Dens[[1]]$x, NALL, replace = TRUE,
+                                                 
+            prob = .$Dens[[1]]$y))) %>% 
+                
+                unnest(Random_Draws)) %>% mutate(Return = coalesce(Return, Random_Draws)) %>% 
+    
+    select(-Random_Draws) %>% spread(Tickers, Return)
+
+
+any(is.na(J400PCAdata))
+
+```
+
+We use the performance analytics package to create a rolling correlation between the J200 and J400. 
+
+
+```{r}
+#Rolling correlation between J200 & the 
+
+df_J200 <- 
+  
+  J200 %>% 
+  
+  group_by(Tickers) %>% 
+  
+  mutate(Ret = Prices / lag(Prices) - 1) %>% 
+  
+  group_by(date) %>%
+  
+  mutate(J200 = sum(Ret * weight_Adj, na.rm=T)) %>% 
+  
+  ungroup()
+
+TickChoice <- paste0( c("BIL", "SBK", "SOL"), " SJ Equity")
+
+PerformanceAnalytics::chart.RollingRegression(Ra = df_J200 %>% filter(Tickers %in% TickChoice) %>%  
+                                                
+                            mutate(Ret = coalesce(Ret, 0) ) %>% 
+                                
+                            tbl_xts(., cols_to_xts = Ret, spread_by = Tickers),
+                            
+                            Rb = df_J200 %>% group_by(date) %>% summarise(J200 = max(J200)) %>%
+                                
+                            tbl_xts(., cols_to_xts = J200),width=120,attribute = c("Beta"), legend.loc = "top")
+```
+
+
+#Question 4
+
+```{r}
+cncy <- read_rds("data/currencies.rds")
+cncy_Carry <- read_rds("data/cncy_Carry.rds")
+cncy_value <- read_rds("data/cncy_value.rds")
+cncyIV <- read_rds("data/cncyIV.rds")
+bbdxy <- read_rds("data/bbdxy.rds")
+```
+
+```{r}
+pacman::p_load("MTS", "robustbase")
+pacman::p_load("tidyverse", "devtools", "rugarch", "rmgarch", 
+    "forecast", "tbl2xts", "lubridate", "PerformanceAnalytics", 
+    "ggthemes")
+```
+
+The South African rand (ZAR) has over the past few years been one of the most volatile currencies
+
+```{r}
+cncy
+```
+
+
+The ZAR has generally performed well during periods where G10 currency carry trades have been favourable and these currency valuations relatively cheap. Globally, it has been one of the currencies that most benefit during periods where the Dollar is comparatively strong, indicating a risk-on sentiment
+
+```{r}
+Currencydataset<- cncy %>% arrange(date) %>% spread(Name, Price) 
+
+colnames(Currencydataset) <- gsub("_Cncy", " ", colnames(Currencydataset))
+colnames(Currencydataset) <- gsub("_Inv", " ", colnames(Currencydataset))
+
+Currencydataset
+```
+
+```{r}
+
+ZARCrncy <- Currencydataset %>% select(date, `SouthAfrica `)
+
+ZARCrncy 
+```
+
+```{r}
+ZarCurrPlot <- ZARCrncy %>% ggplot() + geom_line(aes(date, `SouthAfrica `))+
+                             labs(x = "date", y = "ZAR USD Exchange", 
+                            title = "ZAR USD Exchange rate ")
+
+ZarCurrPlot
+```
+
+We can note the relative depreciation of the ZAR to the USD over the 30 year window. Our concern falls on whether the ZAR has become more volatile in comparison to global currencies. 
+
+
+```{r}
+# dlog returns:
+
+rtn <- ZARCrncy %>%
+mutate(dlogret = log(`SouthAfrica `) - log(lag(`SouthAfrica `))) %>% 
+mutate(scaledret = (dlogret - mean(dlogret, na.rm = T))) %>% ungroup()
+
+
+rtn
+
+```
+```{r}
+
+Tidyrtn <- rtn %>% tbl_xts(., cols_to_xts = "dlogret") %>% PerformanceAnalytics::Return.clean(., method = "boudt")
+
+
+Tidyrtn
+```
+
+```{r}
+# Note we specify the mean (mu) and variance (sigma) models separately:
+garch11 <- 
+  
+  ugarchspec(
+    
+    variance.model = list(model = c("sGARCH","gjrGARCH","eGARCH","fGARCH","apARCH")[1], 
+                          
+    garchOrder = c(1, 1)), 
+    
+    mean.model = list(armaOrder = c(1, 0), include.mean = TRUE), 
+    
+    distribution.model = c("norm", "snorm", "std", "sstd", "ged", "sged", "nig", "ghyp", "jsu")[1])
+
+# Now to fit, I use as.matrix and the data - this way the plot functions we will use later will work.
+
+garchfit1 = ugarchfit(spec = garch11,data = Tidyrtn) 
+
+# Note it saved a S4 class object - having its own plots and functionalities:
+class(garchfit1)
+```
+
+```{r}
+garchfit1
+```
+
+
+```{r, results = 'asis'}
+slotNames(garchfit1)
+names(garchfit1@fit)
+names(garchfit1@model)
+
+# Use it now as follows:
+garchfit1@fit$matcoef  # Model coefficients.
+
+# Include it in your paper as follows:
+pacman::p_load(xtable)
+
+Table <- xtable(garchfit1@fit$matcoef)
+
+print(Table, type = "latex", comment = FALSE)
+
+```
+
+
+```{r}
+persistence(garchfit1)
+
+```
+
+```{r}
+plot(garchfit1, which = 1)
+```
+Look at carry trade as to why var widened
+
+```{r}
+plot(garchfit1, which = 10)
+
+```
+
+
+Maybe do the same for a g10 currency?
+
+#Question 5
+
+```{r}
+msci <- read_rds("data/msci.rds")
+bonds <- read_rds("data/bonds_10y.rds")
+comms <- read_rds("data/comms.rds")
+```
+
+```{r}
+pacman::p_load("tidyverse", "tbl2xts", "broom", "MTS", "robustbase", "forecast")
+
+```
+
+```{r}
+# Calculate All World Index Returns
+
+stockreturns <- msci %>% filter(Name %in% "MSCI_ACWI") %>% 
+    
+    mutate(dlogret = log(Price) - log(lag(Price))) %>% 
+    
+    mutate(scaledret = (dlogret - mean(dlogret, na.rm = T))) %>% 
+    
+    filter(date > dplyr::first(date)) %>% select(-Price) %>%
+    
+    filter(date > as.Date("2005-06-20")) %>% 
+    
+    rename(MSCI_ACWI = scaledret) %>%
+    
+    select(date, MSCI_ACWI)
+
+stockreturns
+```
+
+```{r}
+# Calculate Japanese 10 Year Bond Returns
+
+bondreturns <- bonds %>% filter(Name %in% "EURO_10Yr") %>% 
+    
+    mutate(dlogret = Bond_10Yr/lag(Bond_10Yr) - 1) %>%
+    
+    mutate(scaledret = (dlogret - mean(dlogret, na.rm = T))) %>% 
+    
+    filter(date > dplyr::first(date)) %>% select(-Bond_10Yr) %>%
+    
+    filter(date > as.Date("2005-06-20"))%>% 
+    
+    rename(EURO_10Yr = scaledret) %>%
+    
+    select(date, EURO_10Yr)
+
+bondreturns
+```
+
+```{r}
+
+# Calculate US Real Estate Returns
+USreit <- msci %>% filter(Name %in% "MSCI_USREIT") %>% 
+    
+    mutate(dlogret = log(Price) - log(lag(Price))) %>% 
+    
+    mutate(scaledret = (dlogret - mean(dlogret, na.rm = T))) %>% 
+    
+    filter(date > dplyr::first(date)) %>% select(-Price) %>%
+    
+    filter(date > as.Date("2005-06-20")) %>% 
+    
+    rename(MSCI_USREIT = scaledret) %>%
+    
+    select(date, MSCI_USREIT)
+
+USreit
+```
+
+```{r}
+# Calculate Brent Crude Oil Returns
+
+OilReturn <- comms %>% filter(Name %in% "Oil_Brent" ) %>% 
+    
+    mutate(dlogret = log(Price) - log(lag(Price))) %>% 
+    
+    mutate(scaledret = (dlogret -  mean(dlogret, na.rm = T))) %>% 
+    
+    filter(date > dplyr::first(date)) %>% select(-Price) %>%
+    
+    filter(date > as.Date("2005-06-20")) %>% 
+    
+    rename(Oil_Brent = scaledret) %>% 
+    
+    select(date, Oil_Brent)
+
+OilReturn
+```
+
+```{r}
+Combinedassets <- left_join(stockreturns, bondreturns, by = c("date")) %>% 
+    
+    left_join(., USreit, by = c("date")) %>% 
+    
+    left_join(., OilReturn, by = c("date")) %>% 
+    
+    tbl_xts()
+
+Combinedassets
+```
+
+```{r}
+xts_rtn <- Combinedassets
+```
+
+```{r}
+
+# So, let's be clever about defining more informative col names. 
+# I will create a renaming function below:
+#ReturnSeries = xts_rtn
+#DCC.TV.Cor = Rhot
+
+renamingdcc <- function(ReturnSeries, DCC.TV.Cor) {
+  
+ncolrtn <- ncol(ReturnSeries)
+namesrtn <- colnames(ReturnSeries)
+paste(namesrtn, collapse = "_")
+
+nam <- c()
+xx <- mapply(rep, times = ncolrtn:1, x = namesrtn)
+# Now let's be creative in designing a nested for loop to save the names corresponding to the columns of interest.. 
+
+# TIP: draw what you want to achieve on a paper first. Then apply code.
+
+# See if you can do this on your own first.. Then check vs my solution:
+
+nam <- c()
+for (j in 1:(ncolrtn)) {
+for (i in 1:(ncolrtn)) {
+  nam[(i + (j-1)*(ncolrtn))] <- paste(xx[[j]][1], xx[[i]][1], sep="_")
+}
+}
+
+colnames(DCC.TV.Cor) <- nam
+
+# So to plot all the time-varying correlations wrt SBK:
+ # First append the date column that has (again) been removed...
+DCC.TV.Cor <- 
+    data.frame( cbind( date = index(ReturnSeries), DCC.TV.Cor)) %>% # Add date column which dropped away...
+    mutate(date = as.Date(date)) %>%  tbl_df() 
+
+DCC.TV.Cor <- DCC.TV.Cor %>% gather(Pairs, Rho, -date)
+
+DCC.TV.Cor
+
+}
+
+```
+
+
+```{r}
+# Using the rugarch package, let's specify our own univariate
+# functions to be used in the dcc process:
+
+# Step 1: Give the specifications to be used first:
+
+# A) Univariate GARCH specifications:
+uspec <- ugarchspec(variance.model = list(model = "gjrGARCH", 
+    garchOrder = c(1, 1)), mean.model = list(armaOrder = c(1, 
+    0), include.mean = TRUE), distribution.model = "sstd")
+# B) Repeat uspec n times. This specification should be
+# self-explanatory...
+multi_univ_garch_spec <- multispec(replicate(ncol(xts_rtn), uspec))
+
+# Right, so now every series will have a GJR Garch univariate
+# specification. (see ?ugarchspec for other options...)
+
+# C) DCC Specs
+spec.dcc = dccspec(multi_univ_garch_spec, dccOrder = c(1, 1), 
+    distribution = "mvnorm", lag.criterion = c("AIC", "HQ", "SC", 
+        "FPE")[1], model = c("DCC", "aDCC")[1])  # Change to aDCC e.g.
+
+# D) Enable clustering for speed:
+cl = makePSOCKcluster(10)
+
+# ------------------------ Step 2: The specs are now saved.
+# Let's now build our DCC models...  ------------------------
+
+# First, fit the univariate series for each column:
+multf = multifit(multi_univ_garch_spec, xts_rtn, cluster = cl)
+
+# Now we can use multf to estimate the dcc model using our
+# dcc.spec:
+fit.dcc = dccfit(spec.dcc, data = xts_rtn, solver = "solnp", 
+    cluster = cl, fit.control = list(eval.se = FALSE), fit = multf)
+
+# And that is our DCC fitted model!
+
+# We can now test the model's fit as follows: Let's use the
+# covariance matrices to test the adequacy of MV model in
+# fitting mean residual processes:
+RcovList <- rcov(fit.dcc)  # This is now a list of the monthly covariances of our DCC model series.
+covmat = matrix(RcovList, nrow(xts_rtn), ncol(xts_rtn) * ncol(xts_rtn), 
+    byrow = TRUE)
+mc1 = MCHdiag(xts_rtn, covmat)
+```
+
+```{r}
+dcc.time.var.cor <- rcor(fit.dcc)
+dcc.time.var.cor <- aperm(dcc.time.var.cor, c(3, 2, 1))
+dim(dcc.time.var.cor) <- c(nrow(dcc.time.var.cor), ncol(dcc.time.var.cor)^2)
+```
+
+```{r}
+dcc.time.var.cor <- renamingdcc(ReturnSeries = xts_rtn, DCC.TV.Cor = dcc.time.var.cor)
+
+```
+
+```{r}
+g1 <- ggplot(dcc.time.var.cor %>% filter(grepl("MSCI_ACWI", Pairs), 
+    !grepl("MSCI_ACWI", Pairs))) + geom_line(aes(x = date, y = Rho, 
+    colour = Pairs)) + theme_hc() + ggtitle("Dynamic Conditional Correlations: MSCI_ACWI")
+
+print(g1)
+```
+
 
