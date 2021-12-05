@@ -53,7 +53,7 @@ IV <- read_rds("data/IV.rds")
 
 Economists recently pointed out that the current yield spreads in local mid to longer dated bond yields have since 2020 been the highest in decades. Lets start our analysis with looking at the yield spreads over the different dated SA bonds.
 
-```{r, echo=TRUE, eval=FALSE}
+```{r, echo=TRUE}
 
 SA_bonds_clean <- SA_bonds %>%  
                 
@@ -285,6 +285,7 @@ J200PCAdata <- J200IndexReturn%>%
 ```
 
 Our dateset contains many na's. While filling these na's with column averages may provide some insatnt relief, we fail to preserve the underlying data generating process. It is better to draw a generated distribution mapping the DGP. 
+
 ```{r}
 #Generate distribution to draw from to replace NA's
 
@@ -340,7 +341,7 @@ all.equal(lambda, eval)
 ```
 ```{r, eval=TRUE}
 prop = eval/sum(eval)
-print(prop) %>% kable()
+print(prop) 
 ```
 
 
@@ -355,7 +356,7 @@ g <- prop %>%
     
 ggplot() + geom_bar(aes(PC, Loadings), stat = "identity", fill = "steelblue") + 
     
-fmxdat::theme_fmx(axis.size.title = fmxdat::ggpts(38), axis.size = fmxdat::ggpts(35), 
+fmxdat::theme_fmx(axis.size.title = fmxdat::ggpts(38), axis.size = fmxdat::ggpts(10), 
                   
     title.size = fmxdat::ggpts(42), CustomCaption = T) + 
     
@@ -382,7 +383,7 @@ gg1 <- evecdf %>% ggplot() + geom_bar(aes(Names, Eigenv_1), stat = "identity",
                                       
     fill = "steelblue") + fmxdat::theme_fmx(axis.size.title = fmxdat::ggpts(38),
                                             
-    axis.size = fmxdat::ggpts(35), title.size = fmxdat::ggpts(42), 
+    axis.size = fmxdat::ggpts(10), title.size = fmxdat::ggpts(42), 
     
     CustomCaption = T) + 
     
@@ -408,7 +409,7 @@ labs(x = "Principal Components", y = "Loadings: Eigenvector 2",
      
     title = "Eigenvector proportions\n", caption = "Source: Fmxdat Package") + 
     
-fmxdat::theme_fmx(axis.size.title = fmxdat::ggpts(30), axis.size = fmxdat::ggpts(30), 
+fmxdat::theme_fmx(axis.size.title = fmxdat::ggpts(30), axis.size = fmxdat::ggpts(10), 
                   
     title.size = fmxdat::ggpts(42), CustomCaption = T) + 
     
@@ -437,7 +438,7 @@ J400IndexReturn <- T40 %>%
                     
 ```
 
-```{r}
+```{r, echo=FALSE}
 J400PCAdata <- J400IndexReturn%>% 
     
     group_by(Tickers) %>% 
@@ -524,36 +525,41 @@ pacman::p_load("tidyverse", "devtools", "rugarch", "rmgarch",
     "ggthemes")
 ```
 
-The South African rand (ZAR) has over the past few years been one of the most volatile currencies
-
-```{r}
-cncy
-```
-
-
 The ZAR has generally performed well during periods where G10 currency carry trades have been favourable and these currency valuations relatively cheap. Globally, it has been one of the currencies that most benefit during periods where the Dollar is comparatively strong, indicating a risk-on sentiment
 
 ```{r}
-Currencydataset<- cncy %>% arrange(date) %>% spread(Name, Price) 
+Currencydataset<- cncy %>% 
+    
+                arrange(date) %>% 
+    
+                    spread(Name, Price) 
 
 colnames(Currencydataset) <- gsub("_Cncy", " ", colnames(Currencydataset))
+
 colnames(Currencydataset) <- gsub("_Inv", " ", colnames(Currencydataset))
 
-Currencydataset
 ```
 
 ```{r}
 
-ZARCrncy <- Currencydataset %>% select(date, `SouthAfrica `)
+ZARCrncy <- Currencydataset %>% 
+    
+            select(date, `SouthAfrica `)
 
-ZARCrncy 
 ```
 
 ```{r}
-ZarCurrPlot <- ZARCrncy %>% ggplot() + geom_line(aes(date, `SouthAfrica `))+
-                             labs(x = "date", y = "ZAR USD Exchange", 
-                            title = "ZAR USD Exchange rate ")
-
+ZarCurrPlot <- ZARCrncy %>% ggplot() +
+    
+                geom_line(aes(date, `SouthAfrica `))+
+    
+                labs(title = "ZAR USD Exchange rate", y = "ZAR/USD", x ="", 
+                          
+                subtitle = "" ) +
+    
+                fmxdat::theme_fmx(title.size = ggpts(25), subtitle.size = ggpts(18), legend.size = 
+                                           
+                ggpts(15))  
 ZarCurrPlot
 ```
 
@@ -564,19 +570,22 @@ We can note the relative depreciation of the ZAR to the USD over the 30 year win
 # dlog returns:
 
 rtn <- ZARCrncy %>%
+    
 mutate(dlogret = log(`SouthAfrica `) - log(lag(`SouthAfrica `))) %>% 
+    
 mutate(scaledret = (dlogret - mean(dlogret, na.rm = T))) %>% ungroup()
 
-
-rtn
-
 ```
+
 ```{r}
 
-Tidyrtn <- rtn %>% tbl_xts(., cols_to_xts = "dlogret") %>% PerformanceAnalytics::Return.clean(., method = "boudt")
+Tidyrtn <- rtn %>% 
+    
+        tbl_xts(., cols_to_xts = "dlogret") %>% 
+    
+        PerformanceAnalytics::Return.clean(., method = "boudt")
 
 
-Tidyrtn
 ```
 
 ```{r}
@@ -602,13 +611,15 @@ class(garchfit1)
 ```
 
 ```{r}
-garchfit1
+garchfit1 
 ```
 
 
 ```{r, results = 'asis'}
 slotNames(garchfit1)
+
 names(garchfit1@fit)
+
 names(garchfit1@model)
 
 # Use it now as follows:
@@ -632,7 +643,6 @@ persistence(garchfit1)
 ```{r}
 plot(garchfit1, which = 1)
 ```
-Look at carry trade as to why var widened
 
 ```{r}
 plot(garchfit1, which = 10)
@@ -640,7 +650,6 @@ plot(garchfit1, which = 10)
 ```
 
 
-Maybe do the same for a g10 currency?
 
 #Question 5
 
@@ -655,10 +664,11 @@ pacman::p_load("tidyverse", "tbl2xts", "broom", "MTS", "robustbase", "forecast")
 
 ```
 
+In the MSCI universe, we'll look into the equity returns in China. This is decided on given China's rise to profilerence in the last decade. 
 ```{r}
 # Calculate All World Index Returns
 
-stockreturns <- msci %>% filter(Name %in% "MSCI_ACWI") %>% 
+stockreturns <- msci %>% filter(Name %in% "MSCI China") %>% 
     
     mutate(dlogret = log(Price) - log(lag(Price))) %>% 
     
@@ -668,13 +678,13 @@ stockreturns <- msci %>% filter(Name %in% "MSCI_ACWI") %>%
     
     filter(date > as.Date("2005-06-20")) %>% 
     
-    rename(MSCI_ACWI = scaledret) %>%
+    rename("MSCI China" = scaledret) %>%
     
-    select(date, MSCI_ACWI)
+    select(date, "MSCI China")
 
-stockreturns
+
 ```
-
+Japan, and their bond yields have been plagued by secular stagnation. That is, their returns to their factor inputs and productivity are diminishing. Their long-term yields will be an interesting case study.
 ```{r}
 # Calculate Japanese 10 Year Bond Returns
 
@@ -692,9 +702,8 @@ bondreturns <- bonds %>% filter(Name %in% "EURO_10Yr") %>%
     
     select(date, EURO_10Yr)
 
-bondreturns
 ```
-
+Lets test the hypothesis: Safe as houses
 ```{r}
 
 # Calculate US Real Estate Returns
@@ -712,9 +721,9 @@ USreit <- msci %>% filter(Name %in% "MSCI_USREIT") %>%
     
     select(date, MSCI_USREIT)
 
-USreit
 ```
 
+Oil is the largest commodity traded
 ```{r}
 # Calculate Brent Crude Oil Returns
 
@@ -732,7 +741,6 @@ OilReturn <- comms %>% filter(Name %in% "Oil_Brent" ) %>%
     
     select(date, Oil_Brent)
 
-OilReturn
 ```
 
 ```{r}
@@ -744,7 +752,6 @@ Combinedassets <- left_join(stockreturns, bondreturns, by = c("date")) %>%
     
     tbl_xts()
 
-Combinedassets
 ```
 
 ```{r}
@@ -755,8 +762,6 @@ xts_rtn <- Combinedassets
 
 # So, let's be clever about defining more informative col names. 
 # I will create a renaming function below:
-#ReturnSeries = xts_rtn
-#DCC.TV.Cor = Rhot
 
 renamingdcc <- function(ReturnSeries, DCC.TV.Cor) {
   
@@ -792,7 +797,6 @@ DCC.TV.Cor <- DCC.TV.Cor %>% gather(Pairs, Rho, -date)
 DCC.TV.Cor
 
 }
-
 ```
 
 
@@ -851,16 +855,27 @@ dim(dcc.time.var.cor) <- c(nrow(dcc.time.var.cor), ncol(dcc.time.var.cor)^2)
 
 ```{r}
 dcc.time.var.cor <- renamingdcc(ReturnSeries = xts_rtn, DCC.TV.Cor = dcc.time.var.cor)
-
+dcc.time.var.cor
 ```
 
 ```{r}
-MSCIPLot <- ggplot(dcc.time.var.cor %>% filter(grepl("MSCI_ACWI_", Pairs), 
-    !grepl("_MSCI_ACWI", Pairs))) + geom_line(aes(x = date, y = Rho, 
-    colour = Pairs)) + theme_hc() + labs(subtitle = "Dynamic Conditional Correlations: MSCI_ACWI", x = "", y = "") +
-    fmx_cols() + theme_fmx(subtitle.size = ggpts(25), legend.size = ggpts(15))
+Oil_as_base <- ggplot(dcc.time.var.cor %>% 
+                          
+            filter(grepl("Oil_Brent_", Pairs), !grepl("_Oil_Brent", Pairs))) + 
+    
+            geom_line(aes(x = date, y = Rho, colour = Pairs)) + 
+    
+            theme_hc() + 
+    
+            labs(subtitle = "Dynamic Conditional Correlations: Oil_Brent", x = "", y = "") +
+        
+            fmx_cols() + theme_fmx(subtitle.size = ggpts(25), legend.size = ggpts(15))
 
-MSCIPLot
+Oil_as_base
 ```
+
+The hypothesis is in fact true. There appears to be have been a convergence in the asset-class returns in the periods pre-Covid-19. I would argue that the convergence still exists. The divergence we see in the oil-bond spread is attributable to the temporary supply side shocks coupled with accomodative monetary policy that I se coming to an end mid-2022. 
+
+
 
 
