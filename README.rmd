@@ -15,7 +15,7 @@ library(tidyverse)
 list.files('code/', full.names = T, recursive = T) %>% .[grepl('.R', .)] %>% as.list() %>% walk(~source(.))
 ```
 
-```{r}
+```{r, eval=TRUE}
 #Texevier::create_template_html(directory = "Questions", template_name = "Question1")
 
 #Texevier::create_template_html(directory = "Questions", template_name = "Question2")
@@ -35,12 +35,9 @@ knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
 pacman::p_load("modelsummary", "gt", "knitr", "kableExtra", "tidyverse", "devtools", "rugarch", "rmgarch","forecast", "tbl2xts", "lubridate", "PerformanceAnalytics","ggthemes", "MTS", "robustbase", "rmsfuns", "xts", "glue", "fmxdat", "dplyr", "readr", "rportfolios", "kable")
 ```
 
-#Question 1
+# Question 1
 
-##Yield Spread
-
-
-##Load in Data
+## Yield Spread
 
 ```{r}
 ##Load in Data
@@ -53,7 +50,6 @@ usdzar <- read_rds("data/usdzar.rds")
 ZA_Infl <- read_rds("data/ZA_Infl.rds")
 IV <- read_rds("data/IV.rds")
 ```
-
 
 Economists recently pointed out that the current yield spreads in local mid to longer dated bond yields have since 2020 been the highest in decades. Lets start our analysis with looking at the yield spreads over the different dated SA bonds.
 
@@ -133,31 +129,41 @@ Bond_spreads_st <- Bond_spreads %>%
 
 ```{r, echo=TRUE}
 #bond spreads with the 3m bond yield as the reference point 
-Bond_spreads_st %>% ggplot + 
+Bond_spreads_st %>% ggplot +
+    
                 geom_line(aes(date, Spread, color = Ticker))+
-                theme_bw()
+    
+                labs(title = "Mid and Long Term SA Spreads over shortest matur", y = "Yield Spreads", x ="",
+                     
+                subtitle = "") +
+    
+                fmxdat::theme_fmx(title.size = ggpts(25), subtitle.size = ggpts(20)) + 
+    
+                fmxdat::fmx_cols()
+
+
 ```
 Evidently, the spread between the shortest dated maturity and the mid and longer termed bonds have widened recently. The divergence seems to have started in late 2018 and has continued to have widened since.
 
-```{r}
-SA_bonds
-```
-
-##Comparing local spreads to international spreads
-
-```{r}
-bonds_10y
-```
-##Carry trade 
+## Carry trade 
 
 ```{r}
 usdzar %>% ggplot() + geom_line(aes(date, Price, color = Name)) +
-                     labs(x = "date", y = "USDZAR Exchange Rate", 
-                            title = "USD ZAR Exchange rate")
+    
+                    labs(title = "ZAR USD EXxchange Rate", y = "ZAR/USD", x ="", 
+                          
+                    subtitle = "DMTMKGWM" ) +
+    
+                    fmxdat::theme_fmx(title.size = ggpts(25), subtitle.size = ggpts(18), legend.size = 
+                                           
+                    ggpts(15)) + 
+    
+                    fmxdat::fmx_cols()
+
                            
 ```
 
-#Question 2 
+# Question 2 
 
 
 The ALSI Top40 is an equity Index of the 40 largest companies by market capitalisation, listed on the JSE where the fund is rebalanced quarterly. 
@@ -166,15 +172,14 @@ The SWIX All Share Index represents 99% of the full market cap value of all elig
 
 
 ```{r}
+#Load in data
+
 T40 <- read_rds("data/T40.rds")
 RebDays <- read_rds("data/Rebalance_days.rds")
 ```
 
-```{r, echo=FALSE}
-T40 
-```
 
-```{r}
+```{r, eval=TRUE}
 #Cumulative returns for each Index 
 
 T40Indexes <- T40 %>% arrange(date) %>% 
@@ -182,20 +187,43 @@ T40Indexes <- T40 %>% arrange(date) %>%
                         mutate(J200Return = cumprod(1+(J200*Return))) %>% 
                         select(date, J400Return, J200Return) 
                     
-T40Indexes
 ```
 
 
 ```{r}
 #Cumulative returns of R1 invested in the J400
-J400ReturnPlot <- T40Indexes %>% ggplot() + geom_line(aes(date, J400Return, color = J400Return))
+J400ReturnPlot <- T40Indexes %>% ggplot() + 
+    
+                geom_line(aes(date, J400Return, color = J400Return)) + 
+    
+                labs(title = "J400 Return", y = "Cumulative Return", x ="", 
+                          
+                subtitle = "" ) 
+    
+                fmxdat::theme_fmx(title.size = ggpts(25), subtitle.size = ggpts(18), legend.size = 
+                                           
+                ggpts(15))  
+    
+               
+
 J400ReturnPlot
 ```
 
 ```{r}
 #Cumulative returns of R1 invested in the J200
 
-J200ReturnPlot <- T40Indexes %>% ggplot() + geom_line(aes(date, J200Return, color = J200Return))
+J200ReturnPlot <- T40Indexes %>% ggplot() + 
+    
+                geom_line(aes(date, J200Return, color = J200Return))+
+    
+                 labs(title = "J200 Return", y = "Cumulative Return", x ="", 
+                          
+                subtitle = "" ) 
+    
+                fmxdat::theme_fmx(title.size = ggpts(25), subtitle.size = ggpts(18), legend.size = 
+                                           
+                ggpts(15))  
+    
 J200ReturnPlot
 
 ```
@@ -204,10 +232,17 @@ J200ReturnPlot
 #Cumulative returns of investing R1 in both the J400 & J200
 
 Cumreturns <- T40Indexes %>% ggplot() +
+    
                             geom_line(aes(date, J200Return, color = "red"))+
+    
                             geom_line(aes(date, J400Return, color = "blue"))+ 
-                             labs(x = "date", y = "Index Returns", 
-                            title = "Index Returns for the J200 & J400")
+    
+                            labs(title = "Index Return Series", y = "Cumulative Return", x ="",   subtitle = "" )+ 
+    
+                            fmxdat::theme_fmx(title.size = ggpts(25), subtitle.size = ggpts(18), legend.size = 
+                                           
+                            ggpts(15))  
+    
                            
 
 Cumreturns
@@ -215,33 +250,43 @@ Cumreturns
 The difference between the indexes above is how each index is capped. The figure above indicates that the J200 has returned above that of the J400. 
 
 
-#Question 3
+# Question 3
 
-PCA allows the modeler a means of identifying structure in the covariance / correlation matrix to locate low-dimensional subspaces containing most of the variation in the data. 
-
-Let’s ensure our data is mean centered, as well as scaled, when doing the PCA (this is important, as our returns data are typically skew, non-normal and non-zero meaned. Thus a log transformation, scaling and mean-centering is standard practice).
+PCA allows the modeler a means of identifying structure in the covariance / correlation matrix to locate low-dimensional subspaces containing most of the variation in the data. WE first need to ensure our data is mean centered, as well as scaled.This is an important step as our returns data are typically skew, non-normal and non-zero meaned. Thus a log transformation, scaling and mean-centering is standard practice.
 
 
 ```{r}
 library(zoo)
 
-J200IndexReturn <- T40 %>% arrange(date) %>% select(date, Tickers, Return, J200) %>% drop_na() %>% select(date, Tickers, Return)
+J200IndexReturn <- T40 %>% 
+    
+                arrange(date) %>% 
+    
+                select(date, Tickers, Return, J200) %>% 
+
+                drop_na() %>% 
+    
+                select(date, Tickers, Return)
                     
-J200IndexReturn
 ```
 
 ```{r}
 J200PCAdata <- J200IndexReturn%>% 
-    group_by(Tickers) %>% 
-    mutate(Return = Return - mean(Return)) %>% 
-    ungroup %>% spread(Tickers, Return)
+    
+                group_by(Tickers) %>% 
+    
+                mutate(Return = Return - mean(Return)) %>% 
+    
+                ungroup %>% 
+    
+                spread(Tickers, Return)
 
-J200PCAdata
 
 ```
 
+Our dateset contains many na's. While filling these na's with column averages may provide some insatnt relief, we fail to preserve the underlying data generating process. It is better to draw a generated distribution mapping the DGP. 
 ```{r}
-#Generate distribution to draw from
+#Generate distribution to draw from to replace NA's
 
 set.seed(1234)
 
@@ -286,34 +331,38 @@ E^T \Sigma E = \lambda
 $$
 
 
-where E and λ the eigenvectors and eigenvalues, and Σ the demeaned covariance matrix. Note, eigen does not demean the data, we have to (as done using earlier).
+where E and λ the eigenvectors and eigenvalues, and Σ the demeaned covariance matrix. 
 
 ```{r}
 lambda = diag(t(evec) %*% covmat %*% evec)
 # Which should be equal to eval:
 all.equal(lambda, eval)
 ```
-```{r}
+```{r, eval=TRUE}
 prop = eval/sum(eval)
-print(prop)
+print(prop) %>% kable()
 ```
-
 
 
 ```{r}
 prop <- tibble(Loadings = prop) %>% mutate(PC = paste0("PC_", 
+                                                       
     row_number()))
 
 prop[, "PC"][[1]] <- factor(prop[, "PC"][[1]], levels = prop$PC)
 
 g <- prop %>% 
+    
 ggplot() + geom_bar(aes(PC, Loadings), stat = "identity", fill = "steelblue") + 
     
 fmxdat::theme_fmx(axis.size.title = fmxdat::ggpts(38), axis.size = fmxdat::ggpts(35), 
+                  
     title.size = fmxdat::ggpts(42), CustomCaption = T) + 
+    
 scale_y_continuous(breaks = scales::pretty_breaks(10), labels = scales::percent_format(accuracy = 1)) + 
     
 labs(x = "Principal Components", y = "Loadings", title = "Eigenvalue proportions", 
+     
     caption = "Source: Fmxdat Package")
 
 g
@@ -326,46 +375,75 @@ names <- covmat %>% colnames
 evecdf <- tibble(data.frame(evec))
 
 evecdf <- evecdf %>% purrr::set_names(c(paste0("Eigenv_", 1:ncol(evecdf)))) %>% 
+    
     mutate(Names = names)
 
 gg1 <- evecdf %>% ggplot() + geom_bar(aes(Names, Eigenv_1), stat = "identity", 
-    fill = "steelblue") + fmxdat::theme_fmx(axis.size.title = fmxdat::ggpts(38), 
+                                      
+    fill = "steelblue") + fmxdat::theme_fmx(axis.size.title = fmxdat::ggpts(38),
+                                            
     axis.size = fmxdat::ggpts(35), title.size = fmxdat::ggpts(42), 
+    
     CustomCaption = T) + 
+    
 scale_y_continuous(breaks = scales::pretty_breaks(10), labels = scales::percent_format(accuracy = 1)) + 
     
 labs(x = "Principal Components", y = "Loadings: Eigenvector 1", 
+     
     title = "Eigenvector proportions\n", caption = "Source: Fmxdat Package")
-
-gg2 <- 
-evecdf %>% ggplot() + geom_bar(aes(Names, Eigenv_2), stat = "identity", 
-    fill = "steelblue") + 
-labs(x = "Principal Components", y = "Loadings: Eigenvector 2", 
-    title = "Eigenvector proportions\n", caption = "Source: Fmxdat Package") + 
-    
-fmxdat::theme_fmx(axis.size.title = fmxdat::ggpts(30), axis.size = fmxdat::ggpts(30), 
-    title.size = fmxdat::ggpts(42), CustomCaption = T) + 
-scale_y_continuous(breaks = scales::pretty_breaks(10), labels = scales::percent_format(accuracy = 1)) + 
-    
-geom_label(aes(Names, Eigenv_2, label = glue::glue("{Names}: {round(Eigenv_2, 2)*100}%")), 
-    alpha = 0.5, size = fmxdat::ggpts(4))
 
 fmxdat::finplot(gg1, x.vert = T)
 
+
 ```
 
-#Calcualating a rolling constituent correlation perspective
+```{r}
+
+gg2 <- 
+    
+evecdf %>% ggplot() + geom_bar(aes(Names, Eigenv_2), stat = "identity", 
+    fill = "steelblue") + 
+    
+labs(x = "Principal Components", y = "Loadings: Eigenvector 2", 
+     
+    title = "Eigenvector proportions\n", caption = "Source: Fmxdat Package") + 
+    
+fmxdat::theme_fmx(axis.size.title = fmxdat::ggpts(30), axis.size = fmxdat::ggpts(30), 
+                  
+    title.size = fmxdat::ggpts(42), CustomCaption = T) + 
+    
+scale_y_continuous(breaks = scales::pretty_breaks(10), labels = scales::percent_format(accuracy = 1)) + 
+    
+geom_label(aes(Names, Eigenv_2, label = glue::glue("{Names}: {round(Eigenv_2, 2)*100}%")), 
+           
+    alpha = 0.5, size = fmxdat::ggpts(4))
+
+fmxdat::finplot(gg2, x.vert = T)
+
+```
+
+# Calcualating a rolling constituent correlation perspective
 
 ```{r}
-J400IndexReturn <- T40 %>% arrange(date) %>% select(date, Tickers, Return, J400) %>% drop_na() %>% select(date, Tickers, Return)
+J400IndexReturn <- T40 %>%
+    
+            arrange(date) %>% 
+    
+            select(date, Tickers, Return, J400) %>% 
+    
+            drop_na() %>% 
+    
+            select(date, Tickers, Return)
                     
-J400IndexReturn
 ```
 
 ```{r}
 J400PCAdata <- J400IndexReturn%>% 
+    
     group_by(Tickers) %>% 
+    
     mutate(Return = Return - mean(Return)) %>% 
+    
     ungroup %>% spread(Tickers, Return)
 
 #Generate distribution to draw from
@@ -429,7 +507,7 @@ PerformanceAnalytics::chart.RollingRegression(Ra = df_J200 %>% filter(Tickers %i
 ```
 
 
-#Question 4
+# Question 4
 
 ```{r}
 cncy <- read_rds("data/currencies.rds")
