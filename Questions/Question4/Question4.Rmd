@@ -147,27 +147,9 @@ pacman::p_load(xtable)
 
 Table <- xtable(garchfit1@fit$matcoef)
 
-#print(Table, type = "latex", comment = FALSE)
+print(Table, type = "latex", comment = FALSE)
 
 ```
-
-
-
-
-\begin{table}[ht]
-\centering
-\begin{tabular}{rrrrr}
-  \hline
- &  Estimate &  Std. Error &  t value & Pr($>$$|$t$|$) \\ 
-  \hline
-mu & 0.00 & 0.00 & 2.66 & 0.01 \\ 
-  ar1 & -0.00 & 0.01 & -0.02 & 0.98 \\ 
-  omega & 0.00 & 0.00 & 0.38 & 0.71 \\ 
-  alpha1 & 0.09 & 0.01 & 7.26 & 0.00 \\ 
-  beta1 & 0.91 & 0.01 & 72.12 & 0.00 \\ 
-   \hline
-\end{tabular}
-\end{table}
 
 
 ```{r}

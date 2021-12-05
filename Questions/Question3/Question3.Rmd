@@ -33,7 +33,6 @@ knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
 pacman::p_load("modelsummary", "gt", "knitr", "kableExtra", "tidyverse", "devtools", "rugarch", "rmgarch","forecast", "tbl2xts", "lubridate", "PerformanceAnalytics","ggthemes", "MTS", "robustbase", "rmsfuns", "xts", "glue", "fmxdat", "dplyr", "readr", "rportfolios", "kable")
 ```
 
-\newpage
 
 ```{r}
 #Load in data

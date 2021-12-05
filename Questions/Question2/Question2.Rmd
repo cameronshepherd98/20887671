@@ -37,7 +37,6 @@ The ALSI Top40 is an equity Index of the 40 largest companies by market capitali
 The SWIX All Share Index represents 99% of the full market cap value of all eligible securities listed on the Main Board of the JSE however, all constituents are weighted by an alternate free float, called the SWIX free float. The SWIX top 40 thus represents the largest 40 companies weighted by the SWIX free float. 
 
 
-
 ```{r}
 #Load in data
 
