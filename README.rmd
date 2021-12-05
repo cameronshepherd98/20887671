@@ -651,9 +651,10 @@ plot(garchfit1, which = 10)
 
 
 
-#Question 5
+# Question 5
 
 ```{r}
+#load Data
 msci <- read_rds("data/msci.rds")
 bonds <- read_rds("data/bonds_10y.rds")
 comms <- read_rds("data/comms.rds")
@@ -661,12 +662,12 @@ comms <- read_rds("data/comms.rds")
 
 ```{r}
 pacman::p_load("tidyverse", "tbl2xts", "broom", "MTS", "robustbase", "forecast")
-
 ```
 
 In the MSCI universe, we'll look into the equity returns in China. This is decided on given China's rise to profilerence in the last decade. 
-```{r}
-# Calculate All World Index Returns
+
+```{r, echo=TRUE}
+# Calculate China retunrs
 
 stockreturns <- msci %>% filter(Name %in% "MSCI China") %>% 
     
@@ -684,9 +685,11 @@ stockreturns <- msci %>% filter(Name %in% "MSCI China") %>%
 
 
 ```
+
 Japan, and their bond yields have been plagued by secular stagnation. That is, their returns to their factor inputs and productivity are diminishing. Their long-term yields will be an interesting case study.
-```{r}
-# Calculate Japanese 10 Year Bond Returns
+
+```{r, echo=TRUE}
+# Calculate 10 Year Bond Returns
 
 bondreturns <- bonds %>% filter(Name %in% "EURO_10Yr") %>% 
     
@@ -703,8 +706,10 @@ bondreturns <- bonds %>% filter(Name %in% "EURO_10Yr") %>%
     select(date, EURO_10Yr)
 
 ```
+
 Lets test the hypothesis: Safe as houses
-```{r}
+
+```{r, echo=TRUE}
 
 # Calculate US Real Estate Returns
 USreit <- msci %>% filter(Name %in% "MSCI_USREIT") %>% 
@@ -724,7 +729,7 @@ USreit <- msci %>% filter(Name %in% "MSCI_USREIT") %>%
 ```
 
 Oil is the largest commodity traded
-```{r}
+```{r, echo=TRUE}
 # Calculate Brent Crude Oil Returns
 
 OilReturn <- comms %>% filter(Name %in% "Oil_Brent" ) %>% 
@@ -743,7 +748,7 @@ OilReturn <- comms %>% filter(Name %in% "Oil_Brent" ) %>%
 
 ```
 
-```{r}
+```{r, echo=TRUE}
 Combinedassets <- left_join(stockreturns, bondreturns, by = c("date")) %>% 
     
     left_join(., USreit, by = c("date")) %>% 
@@ -754,11 +759,11 @@ Combinedassets <- left_join(stockreturns, bondreturns, by = c("date")) %>%
 
 ```
 
-```{r}
+```{r, echo=TRUE}
 xts_rtn <- Combinedassets
 ```
 
-```{r}
+```{r, echo=TRUE}
 
 # So, let's be clever about defining more informative col names. 
 # I will create a renaming function below:
@@ -800,7 +805,7 @@ DCC.TV.Cor
 ```
 
 
-```{r}
+```{r, echo=TRUE}
 # Using the rugarch package, let's specify our own univariate
 # functions to be used in the dcc process:
 
@@ -847,18 +852,18 @@ covmat = matrix(RcovList, nrow(xts_rtn), ncol(xts_rtn) * ncol(xts_rtn),
 mc1 = MCHdiag(xts_rtn, covmat)
 ```
 
-```{r}
+```{r, echo=TRUE}
 dcc.time.var.cor <- rcor(fit.dcc)
 dcc.time.var.cor <- aperm(dcc.time.var.cor, c(3, 2, 1))
 dim(dcc.time.var.cor) <- c(nrow(dcc.time.var.cor), ncol(dcc.time.var.cor)^2)
 ```
 
-```{r}
+```{r, echo=TRUE}
 dcc.time.var.cor <- renamingdcc(ReturnSeries = xts_rtn, DCC.TV.Cor = dcc.time.var.cor)
 dcc.time.var.cor
 ```
 
-```{r}
+```{r, echo=TRUE}
 Oil_as_base <- ggplot(dcc.time.var.cor %>% 
                           
             filter(grepl("Oil_Brent_", Pairs), !grepl("_Oil_Brent", Pairs))) + 

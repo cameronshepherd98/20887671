@@ -9,8 +9,8 @@ gc() # garbage collection - It can be useful to call gc after a large object has
 ```
 
     ##          used (Mb) gc trigger (Mb) limit (Mb) max used (Mb)
-    ## Ncells 409900 21.9     842240   45         NA   657805 35.2
-    ## Vcells 775659  6.0    8388608   64      16384  1802259 13.8
+    ## Ncells 409914 21.9     842280   45         NA   657805 35.2
+    ## Vcells 775744  6.0    8388608   64      16384  1802259 13.8
 
 ``` r
 library(tidyverse)
@@ -324,7 +324,7 @@ volatile in comparison to global currencies.
     ## 4    50     173.9    6.894e-16
     ## 
     ## 
-    ## Elapsed time : 0.664773
+    ## Elapsed time : 0.6390619
 
 \[1\] “fit” “model” \[1\] “hessian” “cvar” “var” “sigma”  
 \[5\] “condH” “z” “LLH” “log.likelihoods” \[9\] “residuals” “coef”
@@ -347,18 +347,190 @@ alpha1 9.392003e-02 1.293417e-02 7.26138996 3.830269e-13 beta1
 
 ![](README_files/figure-markdown_github/unnamed-chunk-38-1.png)
 
-\#Question 5
+# Question 5
 
 In the MSCI universe, we’ll look into the equity returns in China. This
 is decided on given China’s rise to profilerence in the last decade.
+
+``` r
+# Calculate China retunrs
+
+stockreturns <- msci %>% filter(Name %in% "MSCI China") %>% 
+    
+    mutate(dlogret = log(Price) - log(lag(Price))) %>% 
+    
+    mutate(scaledret = (dlogret - mean(dlogret, na.rm = T))) %>% 
+    
+    filter(date > dplyr::first(date)) %>% select(-Price) %>%
+    
+    filter(date > as.Date("2005-06-20")) %>% 
+    
+    rename("MSCI China" = scaledret) %>%
+    
+    select(date, "MSCI China")
+```
 
 Japan, and their bond yields have been plagued by secular stagnation.
 That is, their returns to their factor inputs and productivity are
 diminishing. Their long-term yields will be an interesting case study.
 
+``` r
+# Calculate 10 Year Bond Returns
+
+bondreturns <- bonds %>% filter(Name %in% "EURO_10Yr") %>% 
+    
+    mutate(dlogret = Bond_10Yr/lag(Bond_10Yr) - 1) %>%
+    
+    mutate(scaledret = (dlogret - mean(dlogret, na.rm = T))) %>% 
+    
+    filter(date > dplyr::first(date)) %>% select(-Bond_10Yr) %>%
+    
+    filter(date > as.Date("2005-06-20"))%>% 
+    
+    rename(EURO_10Yr = scaledret) %>%
+    
+    select(date, EURO_10Yr)
+```
+
 Lets test the hypothesis: Safe as houses
 
+``` r
+# Calculate US Real Estate Returns
+USreit <- msci %>% filter(Name %in% "MSCI_USREIT") %>% 
+    
+    mutate(dlogret = log(Price) - log(lag(Price))) %>% 
+    
+    mutate(scaledret = (dlogret - mean(dlogret, na.rm = T))) %>% 
+    
+    filter(date > dplyr::first(date)) %>% select(-Price) %>%
+    
+    filter(date > as.Date("2005-06-20")) %>% 
+    
+    rename(MSCI_USREIT = scaledret) %>%
+    
+    select(date, MSCI_USREIT)
+```
+
 Oil is the largest commodity traded
+
+``` r
+# Calculate Brent Crude Oil Returns
+
+OilReturn <- comms %>% filter(Name %in% "Oil_Brent" ) %>% 
+    
+    mutate(dlogret = log(Price) - log(lag(Price))) %>% 
+    
+    mutate(scaledret = (dlogret -  mean(dlogret, na.rm = T))) %>% 
+    
+    filter(date > dplyr::first(date)) %>% select(-Price) %>%
+    
+    filter(date > as.Date("2005-06-20")) %>% 
+    
+    rename(Oil_Brent = scaledret) %>% 
+    
+    select(date, Oil_Brent)
+```
+
+``` r
+Combinedassets <- left_join(stockreturns, bondreturns, by = c("date")) %>% 
+    
+    left_join(., USreit, by = c("date")) %>% 
+    
+    left_join(., OilReturn, by = c("date")) %>% 
+    
+    tbl_xts()
+```
+
+``` r
+xts_rtn <- Combinedassets
+```
+
+``` r
+# So, let's be clever about defining more informative col names. 
+# I will create a renaming function below:
+
+renamingdcc <- function(ReturnSeries, DCC.TV.Cor) {
+  
+ncolrtn <- ncol(ReturnSeries)
+namesrtn <- colnames(ReturnSeries)
+paste(namesrtn, collapse = "_")
+
+nam <- c()
+xx <- mapply(rep, times = ncolrtn:1, x = namesrtn)
+# Now let's be creative in designing a nested for loop to save the names corresponding to the columns of interest.. 
+
+# TIP: draw what you want to achieve on a paper first. Then apply code.
+
+# See if you can do this on your own first.. Then check vs my solution:
+
+nam <- c()
+for (j in 1:(ncolrtn)) {
+for (i in 1:(ncolrtn)) {
+  nam[(i + (j-1)*(ncolrtn))] <- paste(xx[[j]][1], xx[[i]][1], sep="_")
+}
+}
+
+colnames(DCC.TV.Cor) <- nam
+
+# So to plot all the time-varying correlations wrt SBK:
+ # First append the date column that has (again) been removed...
+DCC.TV.Cor <- 
+    data.frame( cbind( date = index(ReturnSeries), DCC.TV.Cor)) %>% # Add date column which dropped away...
+    mutate(date = as.Date(date)) %>%  tbl_df() 
+
+DCC.TV.Cor <- DCC.TV.Cor %>% gather(Pairs, Rho, -date)
+
+DCC.TV.Cor
+
+}
+```
+
+``` r
+# Using the rugarch package, let's specify our own univariate
+# functions to be used in the dcc process:
+
+# Step 1: Give the specifications to be used first:
+
+# A) Univariate GARCH specifications:
+uspec <- ugarchspec(variance.model = list(model = "gjrGARCH", 
+    garchOrder = c(1, 1)), mean.model = list(armaOrder = c(1, 
+    0), include.mean = TRUE), distribution.model = "sstd")
+# B) Repeat uspec n times. This specification should be
+# self-explanatory...
+multi_univ_garch_spec <- multispec(replicate(ncol(xts_rtn), uspec))
+
+# Right, so now every series will have a GJR Garch univariate
+# specification. (see ?ugarchspec for other options...)
+
+# C) DCC Specs
+spec.dcc = dccspec(multi_univ_garch_spec, dccOrder = c(1, 1), 
+    distribution = "mvnorm", lag.criterion = c("AIC", "HQ", "SC", 
+        "FPE")[1], model = c("DCC", "aDCC")[1])  # Change to aDCC e.g.
+
+# D) Enable clustering for speed:
+cl = makePSOCKcluster(10)
+
+# ------------------------ Step 2: The specs are now saved.
+# Let's now build our DCC models...  ------------------------
+
+# First, fit the univariate series for each column:
+multf = multifit(multi_univ_garch_spec, xts_rtn, cluster = cl)
+
+# Now we can use multf to estimate the dcc model using our
+# dcc.spec:
+fit.dcc = dccfit(spec.dcc, data = xts_rtn, solver = "solnp", 
+    cluster = cl, fit.control = list(eval.se = FALSE), fit = multf)
+
+# And that is our DCC fitted model!
+
+# We can now test the model's fit as follows: Let's use the
+# covariance matrices to test the adequacy of MV model in
+# fitting mean residual processes:
+RcovList <- rcov(fit.dcc)  # This is now a list of the monthly covariances of our DCC model series.
+covmat = matrix(RcovList, nrow(xts_rtn), ncol(xts_rtn) * ncol(xts_rtn), 
+    byrow = TRUE)
+mc1 = MCHdiag(xts_rtn, covmat)
+```
 
     ## Test results:  
     ## Q(m) of et: 
@@ -369,6 +541,17 @@ Oil is the largest commodity traded
     ## Test and p-value:  416.8161 0 
     ## Robust Qk(m):  
     ## Test and p-value:  243.1225 2.471573e-05
+
+``` r
+dcc.time.var.cor <- rcor(fit.dcc)
+dcc.time.var.cor <- aperm(dcc.time.var.cor, c(3, 2, 1))
+dim(dcc.time.var.cor) <- c(nrow(dcc.time.var.cor), ncol(dcc.time.var.cor)^2)
+```
+
+``` r
+dcc.time.var.cor <- renamingdcc(ReturnSeries = xts_rtn, DCC.TV.Cor = dcc.time.var.cor)
+dcc.time.var.cor
+```
 
     ## # A tibble: 68,304 × 3
     ##    date       Pairs                   Rho
@@ -384,6 +567,22 @@ Oil is the largest commodity traded
     ##  9 2005-07-01 MSCI.China_MSCI.China     1
     ## 10 2005-07-04 MSCI.China_MSCI.China     1
     ## # … with 68,294 more rows
+
+``` r
+Oil_as_base <- ggplot(dcc.time.var.cor %>% 
+                          
+            filter(grepl("Oil_Brent_", Pairs), !grepl("_Oil_Brent", Pairs))) + 
+    
+            geom_line(aes(x = date, y = Rho, colour = Pairs)) + 
+    
+            theme_hc() + 
+    
+            labs(subtitle = "Dynamic Conditional Correlations: Oil_Brent", x = "", y = "") +
+        
+            fmx_cols() + theme_fmx(subtitle.size = ggpts(25), legend.size = ggpts(15))
+
+Oil_as_base
+```
 
 ![](README_files/figure-markdown_github/unnamed-chunk-51-1.png)
 
