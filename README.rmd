@@ -39,13 +39,11 @@ pacman::p_load("modelsummary", "gt", "knitr", "kableExtra", "tidyverse", "devtoo
 
 ##Yield Spread
 
-```{r, echo=FALSE}
-getwd()
-```
 
 ##Load in Data
 
 ```{r}
+##Load in Data
 
 SA_bonds <- read_rds("data/SA_Bonds.rds")
 BE_Infl <- read_rds("data/BE_Infl.rds")
@@ -59,7 +57,7 @@ IV <- read_rds("data/IV.rds")
 
 Economists recently pointed out that the current yield spreads in local mid to longer dated bond yields have since 2020 been the highest in decades. Lets start our analysis with looking at the yield spreads over the different dated SA bonds.
 
-```{r, echo=FALSE}
+```{r, echo=TRUE, eval=FALSE}
 
 SA_bonds_clean <- SA_bonds %>%  
                 
@@ -71,9 +69,6 @@ SA_bonds_clean <- SA_bonds %>%
     
     tbl2xts::xts_tbl() %>% gather(Ticker, Yield, -date)
 
-SA_bonds_clean
-#Pipe to kable to look nice in report
-
 ```
 
 ```{r, echo=TRUE}
@@ -81,6 +76,7 @@ SA_bonds_clean
 SA_Bond_All <- SA_bonds_clean %>% 
     
                 ggplot() +
+    
                 geom_line(aes(date, Yield, color = Ticker)) +
                
   
@@ -88,26 +84,27 @@ SA_Bond_All <- SA_bonds_clean %>%
   # E.g. using fmxdat::ggpts, we can change the sizes more easily in millimeters. 
   # theme_fmx also offers simplified size settings, as e.g. below:
   
-  fmxdat::theme_fmx(title.size = ggpts(30), 
+  fmxdat::theme_fmx(title.size = ggpts(30),
+                    
                     subtitle.size = ggpts(28),
+                    
                     caption.size = ggpts(25),
-                    # Makes nicer caption. If no caption given, this will break function, so careful:
+                    
                     CustomCaption = T) + 
   
   # crisp colours:
   fmxdat::fmx_cols() + 
   
   labs(x = "", y = "Bond Yields", caption = "Note:\nCalculation own",
+       
        title = "Bond Yields in South Africa across the 3 month, 2 year and 10 year maturities",
+       
        subtitle = "") + 
   
   guides(color = F)
   
-# Finplot now adds finishing touches easily:
 
   fmxdat::finplot(SA_Bond_All, x.vert = T, x.date.type = "%Y", x.date.dist = "2 years")
-  
- #come back and add legend 
 ```
 ``
 A cursory analysis indicates that bond yields for all maturities have declined over the 20-year period examined. The largest decline is experienced by the shortest maturity. We are however, more interested in the spreads between bonds of different maturities. 
@@ -131,8 +128,6 @@ Bond_spreads_st <- Bond_spreads %>%
                      tbl2xts::tbl_xts(cols_to_xts = Spread, spread_by = Ticker) %>% 
     
                     tbl2xts::xts_tbl() %>% gather(Ticker, Spread, -date)
-
-Bond_spreads_st
         
 ```
 
